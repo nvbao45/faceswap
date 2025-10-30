@@ -1,6 +1,9 @@
-*.jpg
-*.png
-*.mp4
+extracted_frames/
+finished_frames/
+finished_videos/
+input_faces/
+input_videos/
+input_faces_models/
 
 __pycache__/
 config.json
