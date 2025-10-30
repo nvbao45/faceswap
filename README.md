@@ -8,6 +8,14 @@ A modern, user-friendly desktop application for automated face swapping in video
 
 ---
 
+## 📸 Application Preview
+
+<img src="assets/mainwindow.png" alt="Face Swap Tool Interface" width="800">
+
+*Modern dark-themed interface with three-panel layout: Controls, Output Log, and Live Preview*
+
+---
+
 ## ✨ Features
 
 ### Core Functionality
@@ -193,10 +201,11 @@ For more detailed information:
 
 ## 🙏 Acknowledgments
 
+- **[face2video](https://github.com/Arminius-Software/face2video)** - The base project inspiration
 - **[Automatic1111](https://github.com/AUTOMATIC1111/stable-diffusion-webui)** - Stable Diffusion WebUI
 - **[Reactor](https://github.com/Gourieff/sd-webui-reactor-sfw)** - Face swap extension
 - **[ForgeUI](https://github.com/lllyasviel/stable-diffusion-webui-forge)** - Alternative WebUI (also compatible)
-- **[face2video](https://github.com/Arminius-Software/face2video)** - The base project inspiration
+
 ---
 
 **Made with ❤️**
