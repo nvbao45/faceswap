@@ -116,7 +116,7 @@ class FaceSwapApp:
         
         subtitle_label = StyledLabel(
             header_frame,
-            text="Easy Face Swapping with Pause & Resume",
+            text="Easy Face Swapping",
             size="subtitle",
             color=Colors.TEXT_SECONDARY
         )
