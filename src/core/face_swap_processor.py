@@ -17,7 +17,7 @@ class FaceSwapProcessor:
         self.is_running = False
     
     def process_frames(self, face_image, input_video, input_type, processing_unit,
-                      start_index=0, on_frame_complete=None, on_progress=None, on_complete=None, on_error=None):
+                      start_index=0, skip_config=None, on_frame_complete=None, on_progress=None, on_complete=None, on_error=None):
         """
         Process frames with face swap
         
@@ -27,6 +27,7 @@ class FaceSwapProcessor:
             input_type: "Single Image" or "Face Model"
             processing_unit: "CPU" or "GPU (CUDA)"
             start_index: Frame index to start from (for resume)
+            skip_config: Dict with skip_enabled, skip_start, skip_end
             on_frame_complete: Callback(index, total, percentage, result_path)
             on_progress: Callback(message)
             on_complete: Callback()
@@ -37,7 +38,8 @@ class FaceSwapProcessor:
         
         try:
             files = os.listdir("extracted_frames/")
-            files.sort()  # Ensure consistent ordering
+            # Sort files numerically, not alphabetically
+            files.sort(key=lambda x: int(''.join(filter(str.isdigit, x)) or 0))
             
             if input_type == "Single Image":
                 source_choice = 0
@@ -70,9 +72,27 @@ class FaceSwapProcessor:
                 
                 file_path = os.path.join("extracted_frames/", file)
                 
-                # Perform face swap
-                self.api.swap_face(file, face_image, input_model, 
-                                  file_path, processing_unit, source_choice)
+                # Check if frame should be skipped
+                frame_number = int(''.join(filter(str.isdigit, file)) or 0)
+                should_skip = False
+                
+                if skip_config:
+                    skip_enabled = skip_config.get('skip_swap_enabled', False)
+                    skip_start = skip_config.get('skip_swap_start', 0)
+                    skip_end = skip_config.get('skip_swap_end', 0)
+                    should_skip = skip_enabled and skip_start <= frame_number <= skip_end
+                
+                if should_skip:
+                    # Just copy the frame without swapping
+                    import shutil
+                    result_path = os.path.join("finished_frames/", file)
+                    shutil.copy2(file_path, result_path)
+                    if on_progress:
+                        on_progress(f"Frame {index + 1}/{len(files)} - Skipped (copied original)")
+                else:
+                    # Perform face swap
+                    self.api.swap_face(file, face_image, input_model, 
+                                      file_path, processing_unit, source_choice)
                 
                 # Save progress after each frame
                 self.progress_manager.save(

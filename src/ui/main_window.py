@@ -207,7 +207,7 @@ class FaceSwapApp:
         )
         self.swap_button.pack(fill=tk.X, pady=Layout.SPACE_BUTTON)
         
-        # Control buttons (pause/resume)
+        # Control buttons (pause/resume/stop)
         control_frame = StyledFrame(processing_frame, bg_type="panel")
         control_frame.pack(fill=tk.X, pady=Layout.SPACE_BUTTON)
         
@@ -229,7 +229,17 @@ class FaceSwapApp:
             command=self._resume_swap,
             state=tk.DISABLED
         )
-        self.resume_button.pack(side=tk.RIGHT, fill=tk.X, expand=True, padx=(2, 0))
+        self.resume_button.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(2, 2))
+        
+        self.stop_button = StyledButton(
+            control_frame,
+            text=f"{Icons.EXIT} Stop",
+            style="danger",
+            size="small",
+            command=self._stop_swap,
+            state=tk.DISABLED
+        )
+        self.stop_button.pack(side=tk.RIGHT, fill=tk.X, expand=True, padx=(2, 0))
         
         self.resume_crash_button = StyledButton(
             processing_frame,
@@ -247,6 +257,95 @@ class FaceSwapApp:
             command=self._start_merge_video
         )
         self.merge_button.pack(fill=tk.X, pady=Layout.SPACE_BUTTON)
+        
+        # Skip Frame Range section
+        skip_frame = StyledFrame(processing_frame, bg_type="panel")
+        skip_frame.pack(fill=tk.X, pady=(Layout.SPACE_SECTION, 0))
+        
+        StyledLabel(
+            skip_frame,
+            text="Skip Range (copy without swap):",
+            size="small",
+            color=Colors.TEXT_SECONDARY,
+            bg=Colors.BG_PANEL
+        ).pack(anchor=tk.W)
+        
+        # Skip range inputs
+        skip_inputs_frame = StyledFrame(skip_frame, bg_type="panel")
+        skip_inputs_frame.pack(fill=tk.X, pady=(3, 0))
+        
+        # Start frame
+        start_frame = StyledFrame(skip_inputs_frame, bg_type="panel")
+        start_frame.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 2))
+        
+        StyledLabel(
+            start_frame,
+            text="Start:",
+            size="small",
+            color=Colors.TEXT_SECONDARY,
+            bg=Colors.BG_PANEL
+        ).pack(side=tk.LEFT, padx=(0, 3))
+        
+        self.skip_start_var = tk.StringVar(value=str(self.config.get('skip_swap_start', 0)))
+        self.skip_start_entry = tk.Entry(
+            start_frame,
+            textvariable=self.skip_start_var,
+            font=(Fonts.FAMILY, Fonts.SIZE_SMALL),
+            bg=Colors.BG_DARK,
+            fg=Colors.TEXT_PRIMARY,
+            insertbackground=Colors.TEXT_PRIMARY,
+            relief=tk.FLAT,
+            width=8
+        )
+        self.skip_start_entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        
+        # End frame
+        end_frame = StyledFrame(skip_inputs_frame, bg_type="panel")
+        end_frame.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(2, 0))
+        
+        StyledLabel(
+            end_frame,
+            text="End:",
+            size="small",
+            color=Colors.TEXT_SECONDARY,
+            bg=Colors.BG_PANEL
+        ).pack(side=tk.LEFT, padx=(0, 3))
+        
+        self.skip_end_var = tk.StringVar(value=str(self.config.get('skip_swap_end', 0)))
+        self.skip_end_entry = tk.Entry(
+            end_frame,
+            textvariable=self.skip_end_var,
+            font=(Fonts.FAMILY, Fonts.SIZE_SMALL),
+            bg=Colors.BG_DARK,
+            fg=Colors.TEXT_PRIMARY,
+            insertbackground=Colors.TEXT_PRIMARY,
+            relief=tk.FLAT,
+            width=8
+        )
+        self.skip_end_entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        
+        # Enable/disable checkbox
+        self.skip_enabled_var = tk.BooleanVar(value=self.config.get('skip_swap_enabled', False))
+        skip_check = tk.Checkbutton(
+            skip_frame,
+            text="Enable skip range",
+            variable=self.skip_enabled_var,
+            font=(Fonts.FAMILY, Fonts.SIZE_SMALL),
+            bg=Colors.BG_PANEL,
+            fg=Colors.TEXT_SECONDARY,
+            selectcolor=Colors.BG_DARK,
+            activebackground=Colors.BG_PANEL,
+            activeforeground=Colors.TEXT_PRIMARY,
+            relief=tk.FLAT,
+            highlightthickness=0,
+            cursor="hand2",
+            command=self._save_skip_config
+        )
+        skip_check.pack(anchor=tk.W, pady=(3, 0))
+        
+        # Bind entry changes to auto-save
+        self.skip_start_var.trace_add('write', lambda *args: self._save_skip_config())
+        self.skip_end_var.trace_add('write', lambda *args: self._save_skip_config())
         
         Separator(panel).pack(fill=tk.X, padx=Layout.PAD_SECTION, pady=Layout.SPACE_SEPARATOR)
         
@@ -457,6 +556,19 @@ class FaceSwapApp:
                 self._append_output(f"{Icons.ERROR} Failed to save settings")
                 self._update_status("Failed to save settings", Colors.ERROR)
     
+    def _save_skip_config(self):
+        """Save skip range configuration"""
+        try:
+            start = int(self.skip_start_var.get()) if self.skip_start_var.get() else 0
+            end = int(self.skip_end_var.get()) if self.skip_end_var.get() else 0
+            
+            self.config['skip_swap_enabled'] = self.skip_enabled_var.get()
+            self.config['skip_swap_start'] = start
+            self.config['skip_swap_end'] = end
+            self.config_manager.save(self.config)
+        except ValueError:
+            pass  # Ignore invalid inputs during typing
+    
     def _select_face(self):
         """Open file dialog to select face"""
         path = "input_faces/" if self.input_type == "Single Image" else "input_faces_models"
@@ -520,7 +632,9 @@ class FaceSwapApp:
         
         self.root.after(0, lambda: self._update_swap_buttons(True))
         
-        files = sorted(os.listdir("extracted_frames/"))
+        # Sort files numerically, not alphabetically
+        files = os.listdir("extracted_frames/")
+        files.sort(key=lambda x: int(''.join(filter(str.isdigit, x)) or 0))
         start_index = 0
         
         # Load progress if resuming
@@ -566,13 +680,34 @@ class FaceSwapApp:
                     return
                 
                 file_path = os.path.join("extracted_frames/", file)
+                result_path = os.path.join("finished_frames/", file)
                 
-                # Perform face swap
-                face_input = "" if source_choice == 1 else self.input_face
-                self.api.swap_face(file, face_input, input_model, file_path, self.processing_unit, source_choice)
+                # Calculate progress percentage
+                progress_pct = ((index + 1) / len(files)) * 100
+                
+                # Check if frame is in skip range
+                frame_number = int(''.join(filter(str.isdigit, file)) or 0)
+                skip_enabled = self.skip_enabled_var.get()
+                try:
+                    skip_start = int(self.skip_start_var.get()) if self.skip_start_var.get() else 0
+                    skip_end = int(self.skip_end_var.get()) if self.skip_end_var.get() else 0
+                except ValueError:
+                    skip_start = 0
+                    skip_end = 0
+                
+                if skip_enabled and skip_start <= frame_number <= skip_end:
+                    # Just copy the frame without swapping
+                    import shutil
+                    shutil.copy2(file_path, result_path)
+                    self._append_output(f"{Icons.INFO} Frame {index + 1}/{len(files)} - {file} - Skipped (copied original)")
+                else:
+                    # Perform face swap
+                    face_input = "" if source_choice == 1 else self.input_face
+                    self._append_output(f"{Icons.PROCESSING} Processing frame {index + 1}/{len(files)} - {file}")
+                    self.api.swap_face(file, face_input, input_model, file_path, self.processing_unit, source_choice)
+                    self._append_output(f"{Icons.SUCCESS} Frame {index + 1}/{len(files)} - {file} ({progress_pct:.1f}%)")
                 
                 # Update preview
-                result_path = os.path.join("finished_frames/", file)
                 if os.path.exists(result_path):
                     self.root.after(0, lambda p=result_path: self._update_preview_image(p))
                 
@@ -583,9 +718,7 @@ class FaceSwapApp:
                     self.input_video, self.input_type, self.processing_unit
                 )
                 
-                # Update progress
-                progress_pct = ((index + 1) / len(files)) * 100
-                self._append_output(f"{Icons.SUCCESS} Frame {index + 1}/{len(files)} ({progress_pct:.1f}%)")
+                # Update status bar
                 self.root.after(0, lambda p=progress_pct, i=index+1, t=len(files):
                                self._update_status(f"{Icons.PROCESSING} Processing: {i}/{t} frames ({p:.1f}%)", Colors.WARNING))
             
@@ -625,6 +758,15 @@ class FaceSwapApp:
             self.is_paused = False
             self._append_output(f"{Icons.PLAY} Resuming face swap...")
             self.root.after(0, self._toggle_pause_resume)
+    
+    def _stop_swap(self):
+        """Stop face swapping"""
+        if self.is_running:
+            self.is_running = False
+            self._append_output(f"{Icons.EXIT} Stopping face swap...")
+            self._append_output("Progress has been saved. You can resume later.")
+            self._update_status("Face swap stopped - Progress saved", Colors.WARNING)
+            self.root.after(0, lambda: self._update_swap_buttons(False))
     
     def _merge_video(self):
         """Merge frames into video"""
@@ -670,6 +812,7 @@ class FaceSwapApp:
             self.swap_button.config(state=tk.DISABLED, bg=Colors.BTN_DISABLED)
             self.pause_button.config(state=tk.NORMAL, bg=Colors.BTN_WARNING)
             self.resume_button.config(state=tk.DISABLED, bg=Colors.BTN_DISABLED)
+            self.stop_button.config(state=tk.NORMAL, bg=Colors.BTN_DANGER)
             self.resume_crash_button.config(state=tk.DISABLED, bg=Colors.BTN_DISABLED)
             self.merge_button.config(state=tk.DISABLED, bg=Colors.BTN_DISABLED)
             self._update_status(f"{Icons.PROCESSING} Face swapping in progress...", Colors.WARNING)
@@ -677,6 +820,7 @@ class FaceSwapApp:
             self.swap_button.config(state=tk.NORMAL, bg=Colors.BTN_SUCCESS)
             self.pause_button.config(state=tk.DISABLED, bg=Colors.BTN_DISABLED)
             self.resume_button.config(state=tk.DISABLED, bg=Colors.BTN_DISABLED)
+            self.stop_button.config(state=tk.DISABLED, bg=Colors.BTN_DISABLED)
             self.resume_crash_button.config(state=tk.NORMAL, bg="#5a4a7a")
             self.merge_button.config(state=tk.NORMAL, bg=Colors.BTN_SECONDARY)
             self._update_status(f"{Icons.SUCCESS} Ready", Colors.SUCCESS)
@@ -686,10 +830,12 @@ class FaceSwapApp:
         if self.is_paused:
             self.pause_button.config(state=tk.DISABLED, bg=Colors.BTN_DISABLED)
             self.resume_button.config(state=tk.NORMAL, bg=Colors.BTN_SUCCESS)
+            self.stop_button.config(state=tk.NORMAL, bg=Colors.BTN_DANGER)
             self._update_status(f"{Icons.PAUSE} Paused - Click Resume to continue", Colors.WARNING)
         else:
             self.pause_button.config(state=tk.NORMAL, bg=Colors.BTN_WARNING)
             self.resume_button.config(state=tk.DISABLED, bg=Colors.BTN_DISABLED)
+            self.stop_button.config(state=tk.NORMAL, bg=Colors.BTN_DANGER)
             self._update_status(f"{Icons.PLAY} Resumed - Processing...", Colors.SUCCESS)
     
     # ===== Startup Methods =====
@@ -708,6 +854,8 @@ class FaceSwapApp:
         self._append_output("3. Split Video Into Frames")
         self._append_output("4. Swap Face (requires Automatic1111 running)")
         self._append_output("5. Merge Frames Into Video")
+        self._append_output("")
+        self._append_output("Tip: Use Settings to skip frame ranges or adjust cleanup options")
         self._append_output("")
         self._append_output("Ready to begin!")
         self._append_output("=" * 50)

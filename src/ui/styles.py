@@ -50,6 +50,7 @@ class Fonts:
     SIZE_SECTION = 12
     SIZE_BUTTON = 10
     SIZE_BUTTON_SMALL = 9
+    SIZE_SMALL = 9
     SIZE_OUTPUT = 10
     SIZE_STATUS = 9
     
@@ -63,9 +64,9 @@ class Layout:
     """Layout spacing and dimensions"""
     # Window dimensions
     WINDOW_WIDTH = 1200
-    WINDOW_HEIGHT = 990
+    WINDOW_HEIGHT = 1100
     MIN_WIDTH = 1200
-    MIN_HEIGHT = 990
+    MIN_HEIGHT = 1100
     
     # Padding
     PAD_MAIN = 20
@@ -220,4 +221,5 @@ class Icons:
     SUCCESS = "✓"
     ERROR = "❌"
     WARNING = "⚠️"
+    INFO = "ℹ️"
     SOUND = "🔊"

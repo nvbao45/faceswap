@@ -20,7 +20,10 @@ class ConfigManager:
         self.config_file = config_file
         self.default_config = {
             'delete_frames_after_merge': True,
-            'auto_save_progress': True
+            'auto_save_progress': True,
+            'skip_swap_enabled': False,
+            'skip_swap_start': 0,
+            'skip_swap_end': 0
         }
     
     def load(self) -> Dict[str, Any]:

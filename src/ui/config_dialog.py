@@ -26,7 +26,7 @@ class ConfigDialog:
         # Create dialog window
         self.dialog = tk.Toplevel(parent)
         self.dialog.title("Settings")
-        self.dialog.geometry("550x500")
+        self.dialog.geometry("550x750")
         self.dialog.configure(bg=Colors.BG_MAIN)
         self.dialog.resizable(False, False)
         
@@ -167,6 +167,112 @@ class ConfigDialog:
             bg=Colors.BG_PANEL
         ).pack(anchor=tk.W, padx=(25, 0), pady=(2, 0))
         
+        # Separator
+        tk.Frame(content, height=1, bg=Colors.SEPARATOR).pack(fill=tk.X, pady=15)
+        
+        # Section: Skip Frame Range
+        StyledLabel(
+            content,
+            text=f"{Icons.SCISSORS} Skip Frame Range",
+            size="section",
+            bold=True,
+            bg=Colors.BG_PANEL
+        ).pack(anchor=tk.W, pady=(0, 10))
+        
+        # Enable skip option
+        self.skip_enabled_var = tk.BooleanVar(value=self.config.get('skip_swap_enabled', False))
+        
+        skip_enabled_frame = StyledFrame(content, bg_type="panel")
+        skip_enabled_frame.pack(fill=tk.X, pady=5)
+        
+        skip_check = tk.Checkbutton(
+            skip_enabled_frame,
+            text="Skip face swap for a range of frames (just copy original)",
+            variable=self.skip_enabled_var,
+            font=(Fonts.FAMILY, Fonts.SIZE_BUTTON),
+            bg=Colors.BG_PANEL,
+            fg=Colors.TEXT_PRIMARY,
+            selectcolor=Colors.BG_DARK,
+            activebackground=Colors.BG_PANEL,
+            activeforeground=Colors.TEXT_PRIMARY,
+            relief=tk.FLAT,
+            highlightthickness=0,
+            cursor="hand2",
+            command=self._toggle_skip_inputs
+        )
+        skip_check.pack(anchor=tk.W)
+        
+        StyledLabel(
+            skip_enabled_frame,
+            text="Useful to skip frames without faces or problematic sections",
+            size="subtitle",
+            color=Colors.TEXT_SECONDARY,
+            bg=Colors.BG_PANEL
+        ).pack(anchor=tk.W, padx=(25, 0), pady=(2, 0))
+        
+        # Range inputs
+        range_frame = StyledFrame(content, bg_type="panel")
+        range_frame.pack(fill=tk.X, pady=(10, 5))
+        
+        # Start frame
+        start_label_frame = StyledFrame(range_frame, bg_type="panel")
+        start_label_frame.pack(fill=tk.X, pady=3)
+        
+        StyledLabel(
+            start_label_frame,
+            text="Start frame:",
+            size="button",
+            bg=Colors.BG_PANEL
+        ).pack(side=tk.LEFT, padx=(25, 10))
+        
+        self.skip_start_var = tk.StringVar(value=str(self.config.get('skip_swap_start', 0)))
+        self.skip_start_entry = tk.Entry(
+            start_label_frame,
+            textvariable=self.skip_start_var,
+            font=(Fonts.FAMILY, Fonts.SIZE_BUTTON),
+            bg=Colors.BG_DARK,
+            fg=Colors.TEXT_PRIMARY,
+            insertbackground=Colors.TEXT_PRIMARY,
+            relief=tk.FLAT,
+            width=15
+        )
+        self.skip_start_entry.pack(side=tk.LEFT)
+        
+        # End frame
+        end_label_frame = StyledFrame(range_frame, bg_type="panel")
+        end_label_frame.pack(fill=tk.X, pady=3)
+        
+        StyledLabel(
+            end_label_frame,
+            text="End frame:",
+            size="button",
+            bg=Colors.BG_PANEL
+        ).pack(side=tk.LEFT, padx=(25, 10))
+        
+        self.skip_end_var = tk.StringVar(value=str(self.config.get('skip_swap_end', 0)))
+        self.skip_end_entry = tk.Entry(
+            end_label_frame,
+            textvariable=self.skip_end_var,
+            font=(Fonts.FAMILY, Fonts.SIZE_BUTTON),
+            bg=Colors.BG_DARK,
+            fg=Colors.TEXT_PRIMARY,
+            insertbackground=Colors.TEXT_PRIMARY,
+            relief=tk.FLAT,
+            width=15
+        )
+        self.skip_end_entry.pack(side=tk.LEFT)
+        
+        StyledLabel(
+            range_frame,
+            text="Example: Start=10, End=50 will copy frames 10-50 without swapping",
+            size="subtitle",
+            color=Colors.TEXT_SECONDARY,
+            bg=Colors.BG_PANEL
+        ).pack(anchor=tk.W, padx=(25, 0), pady=(5, 0))
+        
+        # Set initial state
+        self._toggle_skip_inputs()
+        
         # Button panel
         button_panel = StyledFrame(self.dialog, bg_type="main")
         button_panel.pack(fill=tk.X, padx=20, pady=20)
@@ -188,10 +294,40 @@ class ConfigDialog:
             command=self._on_cancel
         ).pack(side=tk.LEFT, padx=10, pady=5)
     
+    def _toggle_skip_inputs(self):
+        """Enable/disable skip range inputs based on checkbox"""
+        if self.skip_enabled_var.get():
+            self.skip_start_entry.config(state=tk.NORMAL)
+            self.skip_end_entry.config(state=tk.NORMAL)
+        else:
+            self.skip_start_entry.config(state=tk.DISABLED)
+            self.skip_end_entry.config(state=tk.DISABLED)
+    
     def _on_save(self):
         """Save settings and close dialog"""
         self.config['delete_frames_after_merge'] = self.delete_frames_var.get()
         self.config['auto_save_progress'] = self.auto_save_var.get()
+        self.config['skip_swap_enabled'] = self.skip_enabled_var.get()
+        
+        # Validate and save skip range
+        try:
+            start = int(self.skip_start_var.get())
+            end = int(self.skip_end_var.get())
+            
+            if start < 0 or end < 0:
+                messagebox.showerror("Invalid Range", "Frame numbers must be positive")
+                return
+            
+            if self.skip_enabled_var.get() and start >= end:
+                messagebox.showerror("Invalid Range", "Start frame must be less than end frame")
+                return
+            
+            self.config['skip_swap_start'] = start
+            self.config['skip_swap_end'] = end
+        except ValueError:
+            messagebox.showerror("Invalid Input", "Please enter valid numbers for frame range")
+            return
+        
         self.result = self.config
         self.dialog.destroy()
     
